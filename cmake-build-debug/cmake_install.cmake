@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/Toda/CLionProjects/untitled8
+# Install script for directory: C:/Users/Toda/Documents/GitHub/Line-Detection-From-Grayscale-Image
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -47,6 +47,6 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-  file(WRITE "C:/Users/Toda/CLionProjects/untitled8/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+  file(WRITE "C:/Users/Toda/Documents/GitHub/Line-Detection-From-Grayscale-Image/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

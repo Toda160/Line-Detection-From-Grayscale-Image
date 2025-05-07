@@ -6,7 +6,7 @@ using namespace cv;
 
 int main() {
     // Read the image
-    Mat source = imread("C:/Users/Toda/CLionProjects/untitled8/images/grayscale_road.jpg", IMREAD_GRAYSCALE);
+    Mat source = imread("C:/Users/Toda/Documents/GitHub/Line-Detection-From-Grayscale-Image/images/grayscale_road.jpg", IMREAD_GRAYSCALE);
     if(source.empty()) {
         cout << "Error: Could not read the image." << endl;
         return -1;
