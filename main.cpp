@@ -1,32 +1,32 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include "src/project.h"  // Make sure this matches your actual header filename
+#include "src/project.h"
 using namespace std;
 using namespace cv;
 
 int main() {
-    // Load the image in grayscale
+    // Read the image
     Mat source = imread("C:/Users/Toda/CLionProjects/untitled8/images/grayscale_road.jpg", IMREAD_GRAYSCALE);
-    if (source.empty()) {
-        cerr << "Error: Could not read the image." << endl;
+    if(source.empty()) {
+        cout << "Error: Could not read the image." << endl;
         return -1;
     }
 
-    imshow("Original", source);
-
-    Mat edges = apply_Canny(source, 50, 150, "Sobel", true);
-    imshow("Canny Edge Detection", edges);
-
-    int hough_threshold = 50;
-    vector<line_structure> detected_lines = apply_hough_transform(edges, hough_threshold, true);
-
-    cout << "Detected " << detected_lines.size() << " lines" << endl;
-
-    Mat result_image = draw_detected_lines(source, detected_lines, 10, Scalar(0, 0, 255));
-
-    imshow("Detected Lines", result_image);
-
+    // Apply Canny edge detection
+    Mat edges = apply_Canny(source, 0, 0, "Sobel", true);
+    
+    // Apply Hough transform to detect lines
+    vector<line_structure> lines = apply_hough_transform(edges, 100, true);
+    
+    // Draw detected lines on the original image
+    Mat result = draw_detected_lines(source, lines, 10); // Draw top 10 lines
+    
+    // Display results
+    imshow("Original Image", source);
+    imshow("Edge Detection", edges);
+    imshow("Detected Lines", result);
+    
+    // Wait for user input
     waitKey(0);
-
     return 0;
 }
