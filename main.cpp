@@ -16,7 +16,7 @@ int main() {
     Mat edges = apply_Canny(source, 0, 0, "Sobel", true);
     
     // Apply Hough transform to detect lines
-    vector<line_structure> lines = apply_hough_transform(edges, 100, true);
+    vector<line_structure> lines = apply_hough_transform(edges, 50, true);
     
     // Draw detected lines on the original image
     Mat result = draw_detected_lines(source, lines, 10); // Draw top 10 lines
