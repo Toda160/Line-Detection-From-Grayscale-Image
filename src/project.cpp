@@ -319,7 +319,7 @@ Mat apply_Canny(Mat source, int low_threshold, int high_threshold, string filter
     Mat result;
 
     // Step 1: Gaussian filtering
-    Mat smoothed = apply_gaussian_filtering_1D(source, 5);
+    Mat smoothed = apply_gaussian_filtering_1D(source, 7);
 
     // Step 2: Compute gradients
     filter_structure filter = get_filter(filter_type);
