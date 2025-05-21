@@ -2,8 +2,7 @@
 #include <opencv2/opencv.hpp>
 #include "project.h"
 #include <fstream>
-#include <algorithm>
-#include <cmath>
+#include <random>
 using namespace std;
 using namespace cv;
 
@@ -362,125 +361,123 @@ Mat apply_Canny(Mat source, int low_threshold, int high_threshold, string filter
     return result;
 }
 
-// Helper function to check if two lines are similar
-bool are_lines_similar(const line_structure& line1, const line_structure& line2, double rho_threshold, double theta_threshold) {
-    // Convert theta to a consistent range [0, π)
-    double theta1 = fmod(line1.theta + CV_PI, CV_PI);
-    double theta2 = fmod(line2.theta + CV_PI, CV_PI);
 
-    // Calculate the difference between rho values
-    double rho_diff = fabs(line1.rho - line2.rho);
-
-    // Calculate the difference between theta values
-    double theta_diff = fabs(theta1 - theta2);
-    if (theta_diff > CV_PI/2) {
-        theta_diff = CV_PI - theta_diff;
-        rho_diff = fabs(fabs(line1.rho) - fabs(line2.rho));
-    }
-
-    // Check if lines are similar
-    return (rho_diff < rho_threshold && theta_diff < theta_threshold);
-}
-
-// Improved Hough transform implementation
-vector<line_structure> apply_hough_transform(Mat edges, int threshold, bool verbose) {
-    // Parameters for Hough transform
+vector<line_structure_prob> apply_probabilistic_hough_transform(Mat edges, int threshold, int minLineLength, int maxLineGap, bool verbose) {
+    vector<line_structure_prob> detected_lines;
     const double rho_resolution = 1.0;
-    const double theta_resolution = CV_PI / 180.0; // 1 degree in radians
-
-    // Calculate maximum possible distance in the image
-    int max_distance = cvRound(sqrt(edges.rows * edges.rows + edges.cols * edges.cols));
-
-    // Define accumulator array dimensions
+    const double theta_resolution = CV_PI / 180.0;
+    int height = edges.rows;
+    int width = edges.cols;
+    int max_distance = cvRound(sqrt(height * height + width * width));
     int rho_bins = 2 * max_distance + 1;
-    int theta_bins = 180; // 180 degrees (0 to 179)
+    int theta_bins = 180;
 
-    // Create accumulator array
+    // Create accumulator
     Mat accumulator = Mat::zeros(rho_bins, theta_bins, CV_32S);
 
-    // Fill the accumulator array by processing edge pixels
-    for (int y = 0; y < edges.rows; y++) {
-        for (int x = 0; x < edges.cols; x++) {
-            if (edges.at<uchar>(y, x) > 0) { // If edge point
-                // Calculate rho for each theta value
-                for (int theta_idx = 0; theta_idx < theta_bins; theta_idx++) {
-                    double theta = theta_idx * theta_resolution;
-                    double rho = x * cos(theta) + y * sin(theta);
-                    int rho_idx = cvRound(rho + max_distance);
-                    if (rho_idx >= 0 && rho_idx < rho_bins) {
-                        accumulator.at<int>(rho_idx, theta_idx)++;
-                    }
-                }
+    // Randomly sample edge points
+    vector<Point> edge_points;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            if (edges.at<uchar>(y, x) > 0) {
+                edge_points.push_back(Point(x, y));
             }
         }
     }
 
-    // Find local maxima in the accumulator array
-    vector<line_structure> detected_lines;
-    for (int rho_idx = 1; rho_idx < rho_bins - 1; rho_idx++) {
-        for (int theta_idx = 1; theta_idx < theta_bins - 1; theta_idx++) {
-            int votes = accumulator.at<int>(rho_idx, theta_idx);
+    // Use a random subset (20% of edge points) to improve efficiency
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<> dis(0, edge_points.size() - 1);
+    int sample_size = max(1, static_cast<int>(edge_points.size() * 0.2));
+    vector<int> indices(sample_size);
+    for (int i = 0; i < sample_size; i++) {
+        indices[i] = dis(gen);
+    }
 
-            // Only consider points that exceed the threshold
+    // Vote in accumulator for sampled points
+    for (int idx : indices) {
+        Point pt = edge_points[idx];
+        for (int theta_idx = 0; theta_idx < theta_bins; theta_idx++) {
+            double theta = theta_idx * theta_resolution;
+            double rho = pt.x * cos(theta) + pt.y * sin(theta);
+            int rho_idx = cvRound(rho + max_distance);
+            if (rho_idx >= 0 && rho_idx < rho_bins) {
+                accumulator.at<int>(rho_idx, theta_idx)++;
+            }
+        }
+    }
+
+    // Find local maxima in accumulator
+    for (int rho_idx = 0; rho_idx < rho_bins; rho_idx++) {
+        for (int theta_idx = 0; theta_idx < theta_bins; theta_idx++) {
+            int votes = accumulator.at<int>(rho_idx, theta_idx);
             if (votes > threshold) {
-                // Check if it's a local maximum in a 3x3 neighborhood
                 bool is_max = true;
-                for (int dr = -1; dr <= 1 && is_max; dr++) {
-                    for (int dt = -1; dt <= 1 && is_max; dt++) {
-                        if (dr == 0 && dt == 0) continue;
+                for (int dr = -2; dr <= 2 && is_max; dr++) {
+                    for (int dt = -2; dt <= 2 && is_max; dt++) {
                         int nr = rho_idx + dr;
                         int nt = theta_idx + dt;
-                        if (nr >= 0 && nr < rho_bins && nt >= 0 && nt < theta_bins) {
+                        if (nr >= 0 && nr < rho_bins && nt >= 0 && nt < theta_bins && (dr != 0 || dt != 0)) {
                             if (accumulator.at<int>(nr, nt) > votes) {
                                 is_max = false;
                             }
                         }
                     }
                 }
-
-                // If it's a local maximum, add it to the list of detected lines
                 if (is_max) {
                     float rho = (rho_idx - max_distance) * rho_resolution;
                     float theta = theta_idx * theta_resolution;
-                    line_structure line;
-                    line.rho = rho;
-                    line.theta = theta;
-                    line.votes = votes;
-                    detected_lines.push_back(line);
+                    // Find line endpoints using edge points
+                    vector<Point> line_points;
+                    for (const Point& pt : edge_points) {
+                        double r = pt.x * cos(theta) + pt.y * sin(theta);
+                        if (abs(r - rho) < 1.0) { // Tolerance for rho
+                            line_points.push_back(pt);
+                        }
+                    }
+
+                    if (!line_points.empty()) {
+                        // Sort points by y-coordinate to help with segmentation
+                        sort(line_points.begin(), line_points.end(),
+                             [](const Point& a, const Point& b) { return a.y < b.y; });
+
+                        // Group points into lines using proximity
+                        vector<vector<Point>> segments;
+                        vector<Point> current_segment = {line_points[0]};
+                        for (size_t i = 1; i < line_points.size(); i++) {
+                            Point last = current_segment.back();
+                            Point pt = line_points[i];
+                            double dist = sqrt(pow(pt.x - last.x, 2) + pow(pt.y - last.y, 2));
+                            if (dist < maxLineGap) {
+                                current_segment.push_back(pt);
+                            } else {
+                                if (current_segment.size() >= static_cast<size_t>(minLineLength)) {
+                                    segments.push_back(current_segment);
+                                }
+                                current_segment = {pt};
+                            }
+                        }
+                        if (current_segment.size() >= static_cast<size_t>(minLineLength)) {
+                            segments.push_back(current_segment);
+                        }
+
+                        // Convert segments to lines
+                        for (const auto& seg : segments) {
+                            if (seg.size() >= static_cast<size_t>(minLineLength)) {
+                                line_structure_prob line;
+                                line.start = seg.front();
+                                line.end = seg.back();
+                                line.votes = votes;
+                                detected_lines.push_back(line);
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Sort lines by number of votes (descending)
-    sort(detected_lines.begin(), detected_lines.end(),
-         [](const line_structure& a, const line_structure& b) {
-             return a.votes > b.votes;
-         });
-
-    // Filter out similar lines
-    vector<line_structure> filtered_lines;
-    const double rho_threshold = max(5.0, edges.cols * 0.01); // Adaptive threshold based on image size
-    const double theta_threshold = 0.1; // About 5.7 degrees in radians
-
-    for (const auto& line : detected_lines) {
-        bool is_unique = true;
-
-        // Check if this line is similar to any line already in the filtered list
-        for (const auto& unique_line : filtered_lines) {
-            if (are_lines_similar(line, unique_line, rho_threshold, theta_threshold)) {
-                is_unique = false;
-                break;
-            }
-        }
-
-        // Add line to filtered list if it's unique
-        if (is_unique) {
-            filtered_lines.push_back(line);
-        }
-    }
-
-    // Display the accumulator if verbose mode is enabled
     if (verbose) {
         Mat acc_norm;
         normalize(accumulator, acc_norm, 0, 255, NORM_MINMAX, CV_8U);
@@ -489,80 +486,18 @@ vector<line_structure> apply_hough_transform(Mat edges, int threshold, bool verb
         imshow("Hough Accumulator", acc_color);
     }
 
-    return filtered_lines;
+    return detected_lines;
 }
 
-// Draws lines on an image without duplicates
-Mat draw_detected_lines(Mat original, const vector<line_structure>& lines, int max_lines, Scalar color) {
+Mat draw_detected_lines(Mat original, const vector<line_structure_prob>& lines, Scalar color) {
     Mat result;
     if (original.channels() == 1) {
         cvtColor(original, result, COLOR_GRAY2BGR);
-    }
-    else {
+    } else {
         original.copyTo(result);
     }
-
-    int num_lines = (max_lines < 0 || max_lines > static_cast<int>(lines.size())) ?
-                    static_cast<int>(lines.size()) : max_lines;
-
-    // Calculate line endpoints and draw them
-    for (int i = 0; i < num_lines; i++) {
-        float rho = lines[i].rho;
-        float theta = lines[i].theta;
-
-        // Calculate line endpoints
-        double a = cos(theta), b = sin(theta);
-        double x0 = a * rho, y0 = b * rho;
-
-        // Get points on the line at the edge of the image
-        Point pt1, pt2;
-        int x1, y1, x2, y2;
-
-        // Case 1: Vertical line (or nearly vertical)
-        if (fabs(a) < 1e-10) {
-            // Use fixed x values and calculate y using the line equation
-            x1 = x2 = cvRound(x0);
-            y1 = 0;
-            y2 = result.rows - 1;
-        }
-        // Case 2: Horizontal line (or nearly horizontal)
-        else if (fabs(b) < 1e-10) {
-            // Use fixed y values and calculate x using the line equation
-            y1 = y2 = cvRound(y0);
-            x1 = 0;
-            x2 = result.cols - 1;
-        }
-        // Case 3: General case
-        else {
-            // Find intersections with image boundaries
-            // Top edge (y=0)
-            x1 = cvRound((rho - 0 * b) / a);
-            y1 = 0;
-
-            // Bottom edge (y=height-1)
-            x2 = cvRound((rho - (result.rows-1) * b) / a);
-            y2 = result.rows - 1;
-
-            // If points are outside image boundary, try left and right edges
-            if (x1 < 0 || x1 >= result.cols || x2 < 0 || x2 >= result.cols) {
-                // Left edge (x=0)
-                x1 = 0;
-                y1 = cvRound((rho - 0 * a) / b);
-
-                // Right edge (x=width-1)
-                x2 = result.cols - 1;
-                y2 = cvRound((rho - (result.cols-1) * a) / b);
-            }
-        }
-
-        // Ensure both points are within image boundaries
-        if ((x1 >= 0 && x1 < result.cols && y1 >= 0 && y1 < result.rows) ||
-            (x2 >= 0 && x2 < result.cols && y2 >= 0 && y2 < result.rows)) {
-            pt1 = Point(x1, y1);
-            pt2 = Point(x2, y2);
-            line(result, pt1, pt2, color, 2);
-        }
+    for (const auto& line : lines) {
+        cv::line(result, line.start, line.end, color, 2);
     }
-
     return result;
 }
