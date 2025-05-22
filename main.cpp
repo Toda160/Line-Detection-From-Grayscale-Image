@@ -6,14 +6,14 @@ using namespace cv;
 
 int main() {
     // Read the image
-    Mat source = imread("C:/Users/Toda/Documents/GitHub/Line-Detection-From-Grayscale-Image/images/grayscale_pod.jpg", IMREAD_GRAYSCALE);
+    Mat source = imread("C:/Users/Toda/Documents/GitHub/Line-Detection-From-Grayscale-Image/images/grayscale_road.jpg", IMREAD_GRAYSCALE);
     if (source.empty()) {
         cout << "Error: Could not read the image." << endl;
         return -1;
     }
 
     // Apply Canny edge detection with adjusted thresholds
-    Mat edges = apply_Canny(source, 50, 100, "Sobel", false); // Adjusted to 30, 100
+    Mat edges = apply_Canny(source, 30, 100, "Sobel", false); // Adjusted to 30, 100
 
     // Apply Probabilistic Hough transform to detect lines with tuned parameters
     vector<line_structure_prob> lines = apply_probabilistic_hough_transform(edges, 30, 70, 20, false); // Adjusted to 30, 70, 20
