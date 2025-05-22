@@ -489,7 +489,7 @@ vector<line_structure_prob> apply_probabilistic_hough_transform(Mat edges, int t
     return detected_lines;
 }
 
-Mat draw_detected_lines(Mat original, const vector<line_structure_prob>& lines, Scalar color) {
+Mat draw_detected_lines(Mat original, const vector<line_structure_prob>& lines, Scalar color, int thickness) {
     Mat result;
     if (original.channels() == 1) {
         cvtColor(original, result, COLOR_GRAY2BGR);
@@ -497,7 +497,7 @@ Mat draw_detected_lines(Mat original, const vector<line_structure_prob>& lines, 
         original.copyTo(result);
     }
     for (const auto& line : lines) {
-        cv::line(result, line.start, line.end, color, 2);
+        cv::line(result, line.start, line.end, color, thickness);
     }
     return result;
 }

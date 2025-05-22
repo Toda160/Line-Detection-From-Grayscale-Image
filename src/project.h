@@ -50,6 +50,6 @@ int adaptive_threshold(Mat magnitude, float p, bool verbose);
 Mat histeresis_thresholding(Mat source, int th);
 Mat apply_Canny(Mat source, int low_threshold, int high_threshold, string filter_type, bool verbose);
 vector<line_structure_prob> apply_probabilistic_hough_transform(Mat edges, int threshold, int minLineLength, int maxLineGap, bool verbose = false);
-Mat draw_detected_lines(Mat original, const vector<line_structure_prob>& lines, Scalar color = Scalar(0, 0, 255));
+Mat draw_detected_lines(Mat original, const vector<line_structure_prob>& lines, Scalar color = Scalar(0, 0, 255), int thickness = 4);
 
 #endif
