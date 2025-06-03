@@ -315,33 +315,26 @@ Mat histeresis(Mat source) {
 }
 
 Mat apply_Canny(Mat source, int low_threshold, int high_threshold, string filter_type, bool verbose) {
-    // Apply the Canny edge detection algorithm
     Mat result;
 
-    // Step 1: Gaussian filtering
     Mat smoothed = apply_gaussian_filtering_1D(source, 7);
 
-    // Step 2: Compute gradients
     filter_structure filter = get_filter(filter_type);
     gradients_structure gradients = compute_gradients(smoothed, filter.filter_x, filter.filter_y, filter.di, filter.dj);
 
-    // Step 3: Non-maxima suppression
     Mat suppressed = non_maxima_gradient_supression(gradients);
     Mat normalized = normalize_supression(suppressed, filter_type);
 
-    // Step 4: Apply adaptive thresholding
-    float p = 0.1f;
-    int th = adaptive_threshold(normalized, p, verbose);
-    if (high_threshold > 0) th = high_threshold; // Override if provided
-    if (low_threshold <= 0) low_threshold = 0.4 * th;
+    Mat thresholded_otsu;
+    double otsu_thresh = cv::threshold(normalized, thresholded_otsu, 0, 255, cv::THRESH_OTSU);
+    int th = static_cast<int>(otsu_thresh);
+    if (high_threshold > 0) th = high_threshold;
+    int tl = (low_threshold > 0) ? low_threshold : static_cast<int>(0.4 * th);
 
-    // Step 5: Apply hysteresis thresholding
     Mat thresholded = histeresis_thresholding(normalized, th);
 
-    // Step 6: Apply hysteresis
     result = histeresis(thresholded);
 
-    // Clean up filter
     delete[] filter.filter_x;
     delete[] filter.filter_y;
     delete[] filter.di;
@@ -353,8 +346,8 @@ Mat apply_Canny(Mat source, int low_threshold, int high_threshold, string filter
         imshow("c) Gradient Magnitude", gradients.magnitude);
         imshow("d) After Non-maxima Suppression", normalized);
         Mat temp = thresholded.clone();
-        threshold(temp, temp, low_threshold, 255, THRESH_BINARY);
-        imshow("e) After Adaptive Thresholding", temp);
+        threshold(temp, temp, tl, 255, THRESH_BINARY);
+        imshow("e) After Otsu Thresholding", temp);
         imshow("f) Final Result", result);
     }
 

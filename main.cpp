@@ -10,13 +10,14 @@ int main() {
 
     auto start_custom = chrono::high_resolution_clock::now();
 
-    Mat edges_custom = apply_Canny(source, 30, 100, "Sobel", false);
+    Mat edges_custom = apply_Canny(source, 0, 0, "Sobel", false);
 
     vector<line_structure_prob> lines_custom = apply_probabilistic_hough_transform(edges_custom, 30, 70, 20, false);
 
     Mat result_custom = draw_detected_lines(source, lines_custom, Scalar(0, 0, 255), 3);
     auto end_custom = chrono::high_resolution_clock::now();
     auto duration_custom = chrono::duration_cast<chrono::milliseconds>(end_custom - start_custom).count();
+
 
     auto start_opencv = chrono::high_resolution_clock::now();
     Mat blurred;
@@ -32,7 +33,7 @@ int main() {
     cvtColor(source, result_opencv, COLOR_GRAY2BGR);
     for (size_t i = 0; i < lines_opencv.size(); ++i) {
         Vec4i l = lines_opencv[i];
-        double length = norm(Point(l[0], l[1]) - Point(l[2], l[3]));
+        double length = norm(Point(l[0], l[1]) - Point(l[2], l[03]));
         if (length > 70) {
             line(result_opencv, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 0, 255), 3);
         }
